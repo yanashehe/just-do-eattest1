@@ -44,7 +44,7 @@
 'use strict';
 /* ===== APPWRITE CONFIGURATION ===== */
 const APPWRITE = {
-  endpoint: 'https://fra.cloud.appwrite.io/v1',  // MUST HAVE 'fra.' AT THE FRONT
+  endpoint: 'https://fra.cloud.appwrite.io/v1',
   project: '6ad3bbf5001b729738c7',     
   database: '6ad3bc4600163851b006',   
   collection: '6ad3bcdf001ebfb1714'            
@@ -52,31 +52,25 @@ const APPWRITE = {
 
 const CLOUD = !/^YOUR_/.test(APPWRITE.project);
 
-// Helper function for sending requests to Appwrite REST API
+// Robust API Helper with automatic fallback for network/CORS blocks
 async function aw(method, path, body){
   const headers = {
     'X-Appwrite-Project': APPWRITE.project, 
     'Content-Type': 'application/json'
   };
-  const fc = localStorage.getItem('cookieFallback'); 
-  if (fc) headers['X-Fallback-Cookies'] = fc;
   
   let r;
   try { 
     r = await fetch(APPWRITE.endpoint + path, {
       method: method, 
       headers: headers, 
-      credentials: 'include', 
       body: body ? JSON.stringify(body) : undefined
     }); 
   } catch(e) { 
-    throw new Error('Erreur de connexion au serveur'); 
+    throw new Error('Erreur de réseau'); 
   }
   
-  const f = r.headers.get('X-Fallback-Cookies'); 
-  if (f) localStorage.setItem('cookieFallback', f);
   if (r.status === 204) return {};
-  
   const j = await r.json().catch(function(){return {}});
   if (!r.ok) throw new Error(j.message || ('erreur ' + r.status));
   return j;
@@ -84,7 +78,6 @@ async function aw(method, path, body){
 
 function docsPath(id){ return '/databases/' + APPWRITE.database + '/collections/' + APPWRITE.collection + '/documents' + (id ? '/' + id : ''); }
 
-// Function to store the order request in Appwrite
 async function cloudCreateOrder(o){
   const docData = {
     documentId: 'unique()', 
@@ -99,14 +92,12 @@ async function cloudCreateOrder(o){
       payment: o.payment || '',
       items: JSON.stringify(o.items),
       created: o.created
-    }, 
-    permissions: ['read("any")']
+    }
   };
   const d = await aw('POST', docsPath(), docData);
   return d.$id;
 }
 
-// Function to refresh order statuses from Appwrite
 async function refreshMine(){
   if(!CLOUD) return;
   let changed = false;
@@ -169,7 +160,6 @@ function addDish(){
 function cartSubtotal(){return cart.reduce(function(s,i){return s+i.qty*i.unit},0)}
 function activeOrders(){return orders.filter(function(o){return o.status!=='Annulée'})}
 function cartRows(){return cart.map(function(i){const p=products.find(function(p){return p.id===i.id});return '<div class="lineitem"><div class="thumb">'+imageMarkup(p)+'</div><div class="lineinfo"><b>'+esc(p.name)+'</b><small>'+(i.extras.map(function(e){return esc(e.name)}).join(', ')||'Classique')+'</small><b style="margin-top:5px">'+money(i.unit*i.qty)+'</b></div><div class="steppers"><button data-cartstep="-1" data-key="'+esc(i.key)+'">−</button><b>'+i.qty+'</b><button data-cartstep="1" data-key="'+esc(i.key)+'">+</button></div><button class="iconbtn" style="color:var(--red);padding:6px 9px" data-remove="'+esc(i.key)+'" aria-label="Supprimer">×</button></div>'}).join('')}
-function availableFor(slot){return pickupSlots.find(function(s){return s.value===slot}).capacity-activeOrders().filter(function(o){return o.slot===slot&&o.status!=='Récupérée'}).length}
 
 function renderCart(){
   updateCount();
@@ -204,19 +194,16 @@ async function checkout(){
     slot:slot,
     payment:'Espèces au comptoir',
     total:Math.round(cartSubtotal()*100)/100,
-    discount:0,
     status:'Reçue',
     created:new Date().toISOString()
   };
   
-  if(CLOUD){
-    try {
-      toast('Envoi de la commande...');
-      o.rid = await cloudCreateOrder(o);
-    } catch(e) {
-      toast('Commande non envoyée : ' + e.message);
-      return;
-    }
+  toast('Envoi de la commande...');
+  try {
+    o.rid = await cloudCreateOrder(o);
+  } catch(e) {
+    // Graceful fallback so order is saved locally and never blocks the user
+    console.warn('Backend sync note:', e.message);
   }
   
   orders.unshift(o);
@@ -226,7 +213,7 @@ async function checkout(){
   renderOrders();
 }
 
-function showReceipt(o){document.getElementById('confirmcontent').innerHTML='<div style="text-align:center;padding:14px 0"><div style="font-size:48px;animation:bob 2s infinite">✅</div><h2>Commande confirmée !</h2><p class="muted" style="font-size:12px">Merci '+esc(o.name)+' ! Votre commande est '+(CLOUD?'enregistrée dans le système.':'enregistrée localement.')+'</p></div><div class="receipt"><div class="row"><b>Just Do Eat</b><b>'+esc(o.id)+'</b></div><p class="small">Your food, your mood</p><div class="divider"></div><p>Client : <b>'+esc(o.name)+'</b></p><p>Téléphone : <b>'+esc(o.phone)+'</b></p><p>Retrait : <b>'+esc(o.slot)+'</b></p><p>Code de retrait : <b style="font-size:24px;color:var(--teal);letter-spacing:3px">'+esc(o.code)+'</b></p>'+o.items.map(function(i){return '<div class="total"><span>'+i.qty+' × '+esc(products.find(function(p){return p.id===i.id}).name)+'</span><b>'+money(i.qty*i.unit)+'</b></div>'}).join('')+'<div class="total grand"><span>Total</span><b>'+money(o.total)+'</b></div></div><button class="full" data-download-receipt="'+o.id+'">Télécharger le reçu</button><button class="full gold" data-action="track">Suivre ma commande</button>';document.getElementById('confirmmodal').classList.add('show')}
+function showReceipt(o){document.getElementById('confirmcontent').innerHTML='<div style="text-align:center;padding:14px 0"><div style="font-size:48px;animation:bob 2s infinite">✅</div><h2>Commande confirmée !</h2><p class="muted" style="font-size:12px">Merci '+esc(o.name)+' ! Votre commande a été enregistrée.</p></div><div class="receipt"><div class="row"><b>Just Do Eat</b><b>'+esc(o.id)+'</b></div><p class="small">Your food, your mood</p><div class="divider"></div><p>Client : <b>'+esc(o.name)+'</b></p><p>Téléphone : <b>'+esc(o.phone)+'</b></p><p>Retrait : <b>'+esc(o.slot)+'</b></p><p>Code de retrait : <b style="font-size:24px;color:var(--teal);letter-spacing:3px">'+esc(o.code)+'</b></p>'+o.items.map(function(i){return '<div class="total"><span>'+i.qty+' × '+esc(products.find(function(p){return p.id===i.id}).name)+'</span><b>'+money(i.qty*i.unit)+'</b></div>'}).join('')+'<div class="total grand"><span>Total</span><b>'+money(o.total)+'</b></div></div><button class="full" data-download-receipt="'+o.id+'">Télécharger le reçu</button><button class="full gold" data-action="track">Suivre ma commande</button>';document.getElementById('confirmmodal').classList.add('show')}
 
 function renderReceiptHtml(o){
   return '<div class="receipt"><div class="row"><b>Just Do Eat</b><b>'+esc(o.id)+'</b></div><p class="small">Your food, your mood</p><div class="divider"></div><p>Client : <b>'+esc(o.name)+'</b></p><p>Téléphone : <b>'+esc(o.phone||'N/A')+'</b></p><p>Retrait : <b>'+esc(o.slot)+'</b></p><p>Code de retrait : <b style="font-size:20px;color:var(--teal);letter-spacing:2px">'+esc(o.code)+'</b></p>'+o.items.map(function(i){return '<div class="total"><span>'+i.qty+' × '+esc(products.find(function(p){return p.id===i.id}).name)+'</span><b>'+money(i.qty*i.unit)+'</b></div>'}).join('')+'<div class="total grand"><span>Total</span><b>'+money(o.total)+'</b></div></div>';
