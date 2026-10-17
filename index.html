@@ -45,9 +45,9 @@
 /* ===== APPWRITE CONFIGURATION ===== */
 const APPWRITE = {
   endpoint: 'https://cloud.appwrite.io/v1',
-  project: 'YOUR_PROJECT_ID',     // Replace with your Appwrite Project ID
-  database: 'YOUR_DATABASE_ID',   // Replace with your Appwrite Database ID
-  collection: 'orders'            // Collection ID for orders
+  project: '6ad3bbf5001b729738c7',     
+  database: '6ad3bc4600163851b006',   
+  collection: 'orders'            
 };
 
 const CLOUD = !/^YOUR_/.test(APPWRITE.project);
@@ -84,7 +84,7 @@ async function aw(method, path, body){
 
 function docsPath(id){ return '/databases/' + APPWRITE.database + '/collections/' + APPWRITE.collection + '/documents' + (id ? '/' + id : ''); }
 
-// Function to store the order request in Appwrite (including phone number)
+// Function to store the order request in Appwrite
 async function cloudCreateOrder(o){
   const docData = {
     documentId: 'unique()', 
