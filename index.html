@@ -52,7 +52,6 @@ const APPWRITE = {
 
 const CLOUD = !/^YOUR_/.test(APPWRITE.project);
 
-// Robust API Helper with automatic fallback for network/CORS blocks
 async function aw(method, path, body){
   const headers = {
     'X-Appwrite-Project': APPWRITE.project, 
@@ -158,7 +157,6 @@ function addDish(){
 }
 
 function cartSubtotal(){return cart.reduce(function(s,i){return s+i.qty*i.unit},0)}
-function activeOrders(){return orders.filter(function(o){return o.status!=='Annulée'})}
 function cartRows(){return cart.map(function(i){const p=products.find(function(p){return p.id===i.id});return '<div class="lineitem"><div class="thumb">'+imageMarkup(p)+'</div><div class="lineinfo"><b>'+esc(p.name)+'</b><small>'+(i.extras.map(function(e){return esc(e.name)}).join(', ')||'Classique')+'</small><b style="margin-top:5px">'+money(i.unit*i.qty)+'</b></div><div class="steppers"><button data-cartstep="-1" data-key="'+esc(i.key)+'">−</button><b>'+i.qty+'</b><button data-cartstep="1" data-key="'+esc(i.key)+'">+</button></div><button class="iconbtn" style="color:var(--red);padding:6px 9px" data-remove="'+esc(i.key)+'" aria-label="Supprimer">×</button></div>'}).join('')}
 
 function renderCart(){
@@ -202,7 +200,6 @@ async function checkout(){
   try {
     o.rid = await cloudCreateOrder(o);
   } catch(e) {
-    // Graceful fallback so order is saved locally and never blocks the user
     console.warn('Backend sync note:', e.message);
   }
   
@@ -253,7 +250,7 @@ if(target.dataset.downloadReceipt){downloadReceipt(target.dataset.downloadReceip
 document.getElementById('search').addEventListener('input',renderMenu);
 document.getElementById('dishcontent').addEventListener('change',function(ev){if(ev.target.matches('[data-extra]'))recalcDish()});
 document.getElementById('confirmmodal').addEventListener('click',function(ev){if(ev.target===this)closeModal('confirmmodal')});
-document.addEventListener('keydown',function(ev){if(ev.key==='Escape'){closeModal('dishmodal');closeModal('confirmmodal')}});
+document.addEventListener('keydown',function(ev){if(ev.key==='Escape'){closeModal('dishmodal');closeModal('confirmmodal')});
 const _go=go;go=function(id){_go(id);if(id==='orders')refreshMine()};
 setInterval(function(){if(document.hidden||!CLOUD)return;if(document.getElementById('orders').classList.contains('active'))refreshMine()},15000);
 renderMenu();updateCount();
