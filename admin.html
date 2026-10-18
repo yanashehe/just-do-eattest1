@@ -30,12 +30,29 @@ button{cursor:pointer;font:inherit}
 .status{padding:4px 12px;border-radius:50px;font-size:12px;font-weight:800;background:#E0F2FE;color:var(--primary-dark)}
 .receipt{background:#F8FAFC;border:1px dashed var(--border);border-radius:14px;padding:14px;font-size:13px}
 .total{display:flex;justify-content:space-between;margin-top:8px;font-weight:800;font-size:15px;border-top:1px solid var(--border);padding-top:8px}
-select.field{width:100%;padding:10px;border-radius:10px;border:1px solid var(--border);background:#fff;font-weight:700}
+select.field, input.field{width:100%;padding:10px;border-radius:10px;border:1px solid var(--border);background:#fff;font-weight:700}
 .empty{text-align:center;padding:50px;color:var(--muted)}
+
+/* Auth Lock Screen */
+.lockscreen{position:fixed;inset:0;background:var(--bg);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px}
+.lockcard{background:var(--card-bg);border:1px solid var(--border);border-radius:24px;padding:32px;width:min(100%,380px);box-shadow:var(--shadow);text-align:center}
 </style>
 </head>
 <body>
-<div class="container">
+
+<!-- Lock Screen Overlay -->
+<div id="lockscreen" class="lockscreen">
+  <div class="lockcard">
+    <div style="font-size:40px;margin-bottom:12px">🔒</div>
+    <h2 style="margin:0 0 6px">Accès Administrateur</h2>
+    <p style="font-size:13px;color:var(--muted);margin:0 0 20px">Entrez le code secret pour afficher les commandes.</p>
+    <input type="password" id="passcode" class="field" placeholder="Code secret" style="text-align:center;font-size:16px;letter-spacing:2px;margin-bottom:14px">
+    <button class="btn full" onclick="checkAuth()" style="width:100%;justify-content:center;padding:12px">Se connecter</button>
+    <p id="autherror" style="color:#EF4444;font-size:12px;font-weight:700;margin-top:12px;display:none">Code incorrect !</p>
+  </div>
+</div>
+
+<div class="container" id="adminContent" style="display:none">
   <header>
     <div>
       <h1>Just Do Eat · Admin Dashboard</h1>
@@ -44,6 +61,7 @@ select.field{width:100%;padding:10px;border-radius:10px;border:1px solid var(--b
     <div class="actions">
       <button class="btn accent" onclick="exportExcel()">📊 Exporter vers Excel</button>
       <button class="btn" onclick="loadOrders()">🔄 Actualiser</button>
+      <button class="btn" onclick="logout()" style="background:#EF4444;box-shadow:none">Déconnexion</button>
     </div>
   </header>
 
@@ -53,6 +71,8 @@ select.field{width:100%;padding:10px;border-radius:10px;border:1px solid var(--b
 </div>
 
 <script>
+const ADMIN_CODE = "anastouri12";
+
 const APPWRITE = {
   endpoint: 'https://fra.cloud.appwrite.io/v1',
   project: '6ad3bbf5001b729738c7',     
@@ -61,6 +81,33 @@ const APPWRITE = {
 };
 
 let allOrders = [];
+
+function checkAuth(){
+  const input = document.getElementById('passcode').value.trim();
+  if(input === ADMIN_CODE || sessionStorage.getItem('admin_authed') === 'true'){
+    sessionStorage.setItem('admin_authed', 'true');
+    document.getElementById('lockscreen').style.display = 'none';
+    document.getElementById('adminContent').style.display = 'block';
+    loadOrders();
+  } else {
+    document.getElementById('autherror').style.display = 'block';
+  }
+}
+
+function logout(){
+  sessionStorage.removeItem('admin_authed');
+  location.reload();
+}
+
+// Allow pressing Enter on the passcode field
+document.getElementById('passcode').addEventListener('keyup', function(e){
+  if(e.key === 'Enter') checkAuth();
+});
+
+// Auto-login if previously unlocked in this session
+if(sessionStorage.getItem('admin_authed') === 'true'){
+  checkAuth();
+}
 
 async function aw(method, path, body){
   const headers = {'X-Appwrite-Project': APPWRITE.project, 'Content-Type': 'application/json'};
@@ -79,7 +126,7 @@ async function loadOrders(){
     allOrders = res.documents || [];
     renderOrders();
   } catch(e) {
-    container.innerHTML = '<div class="empty" style="color:red">Erreur de connexion : ' + e.message + '</div>';
+    container.innerHTML = '<div class="empty" style="color:red">Erreur : ' + e.message + '</div>';
   }
 }
 
@@ -153,8 +200,6 @@ function exportExcel(){
   XLSX.utils.book_append_sheet(workbook, worksheet, "Commandes");
   XLSX.writeFile(workbook, "JustDoEat_Commandes.xlsx");
 }
-
-loadOrders();
 </script>
 </body>
 </html>
