@@ -72,8 +72,8 @@ select.field, input.field{width:100%;padding:10px;border-radius:10px;border:1px 
 </div>
 
 <script>
-// SHA-256 pre-computed hash for 'anastouri12'
-const ADMIN_HASH = "81c3c907a10ddf912f2759f2e327a3c306e9ec1ee55b272ec8fa6a83604d57ad";
+// SHA-256 pre-computed hash for 'tajinedl7ot'
+const ADMIN_HASH = "152010c794caed0fb44d71bc8cb3aeb00cbfa7e7ea5199615a6b09335ef0dd82";
 
 const APPWRITE = {
   endpoint: 'https://fra.cloud.appwrite.io/v1',
@@ -114,7 +114,7 @@ document.getElementById('passcode').addEventListener('keyup', function(e){
   if(e.key === 'Enter') checkAuth();
 });
 
-// Auto-login if previously unlocked in this active browser tab/session
+// Auto-login if previously unlocked in this active browser session
 if(sessionStorage.getItem('admin_authed') === 'true'){
   checkAuth();
 }
