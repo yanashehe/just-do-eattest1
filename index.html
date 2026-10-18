@@ -294,4 +294,144 @@ const PH = 'https://images.unsplash.com/';
 const products = [
 {id:'msemen',name:'Msemen & miel',cat:'Marocain',price:12,emoji:'🥞',badge:'Populaire',desc:'Msemen doré servi avec miel et beurre.',ingredients:'Farine, semoule, beurre, miel',img:'photo-1509440159596-0249088772ff',extras:[{name:'Amlou',price:3},{name:'Fromage',price:3}]},
 {id:'bmarocain',name:'Ftour Marocain',cat:'Marocain',price:18,emoji:'🫖',badge:'Populaire',desc:'Petit-déjeuner marocain avec harcha, olives et thé.',ingredients:'Pain, semoule, olives, thé, miel',img:'photo-1498837167922-ddd27525d352',extras:[{name:'Œuf',price:4},{name:'Jus frais',price:6}]},
-{id:'harcha',name:'Harcha & fromage',cat:'Marocain',price:14,emoji:'🫓',badge:'',
+{id:'harcha',name:'Harcha & fromage',cat:'Marocain',price:14,emoji:'🫓',badge:'',desc:'Harcha moelleuse et fromage frais.',ingredients:'Semoule, beurre, lait, fromage',img:'photo-1504754524776-8f4f37790ca0',extras:[{name:'Miel',price:2}]},
+{id:'pancake',name:'American Pancakes',cat:'Américain',price:22,emoji:'🥞',badge:'Nouveau',desc:'Pancakes moelleux, fruits et sirop.',ingredients:'Farine, œufs, lait, sirop',img:'photo-1528207776546-365bb710ee93',extras:[{name:'Chocolat',price:4},{name:'Banane',price:3}]},
+{id:'toast',name:'American Breakfast',cat:'Américain',price:26,emoji:'🍳',badge:'',desc:'Œufs, toast, fromage et boisson chaude.',ingredients:'Œufs, pain, fromage, beurre',img:'photo-1533089860892-a7c6f0a88666',extras:[{name:'Jus d’orange',price:6}]},
+{id:'tuna',name:'Club sandwich au thon',cat:'Plats',price:24,emoji:'🥪',badge:'Populaire',desc:'Sandwich toasté, thon, tomate, laitue et sauce.',ingredients:'Pain, thon, tomate, laitue, sauce',img:'photo-1528735602780-2552fd46c7af',extras:[{name:'Extra fromage',price:3},{name:'Frites',price:6}]},
+{id:'bowl',name:'Chicken Bowl',cat:'Plats',price:28,emoji:'🍗',badge:'Nouveau',desc:'Poulet assaisonné, riz et légumes croquants.',ingredients:'Poulet, riz, carotte, maïs, salade',img:'photo-1546069901-ba9599a7e63c',extras:[{name:'Extra poulet',price:7},{name:'Sauce',price:2}]},
+{id:'pasta',name:'Pâtes sauce tomate',cat:'Plats',price:23,emoji:'🍝',badge:'',desc:'Pâtes al dente, sauce tomate et herbes.',ingredients:'Pâtes, tomate, herbes, fromage',img:'photo-1473093295043-cdd812d0e601',extras:[{name:'Poulet',price:7},{name:'Fromage',price:3}]},
+{id:'water',name:'Eau minérale',cat:'Boissons',price:5,emoji:'💧',badge:'',desc:'Eau minérale fraîche.',ingredients:'Eau minérale',img:'photo-1531058020387-3be344556be6',extras:[]}
+];
+const categories=[['Tout','Tout'],['Marocain','Marocain'],['Américain','Américain'],['Plats','Plats'],['Boissons','Boissons']];
+const pickupSlots=[{value:'ISTA Ifrane à 13:00–13:30',capacity:15}];
+
+let selectedCategory='Tout',activeDish=null,cart=readStore('ista_cart',[]),orders=readStore('ista_orders',[]),dishQty=1;
+
+function readStore(key,fallback){try{const v=JSON.parse(localStorage.getItem(key));return v===null?fallback:v}catch(e){return fallback}}
+function store(){localStorage.setItem('ista_cart',JSON.stringify(cart));localStorage.setItem('ista_orders',JSON.stringify(orders));updateCount()}
+function money(n){return Number(n||0).toFixed(2).replace('.',',')+' DH'}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(function(){el.classList.remove('show')},2600)}
+function imageUrl(id,w){return PH+id+'?auto=format&fit=crop&w='+(w||800)+'&q=82'}
+function imageMarkup(p,cls){return '<img class="'+(cls||'')+'" src="'+imageUrl(p.img,800)+'" alt="'+esc(p.name)+'" loading="lazy" onerror="this.style.display=\'none\';if(this.nextElementSibling)this.nextElementSibling.style.display=\'grid\'"><span class="foodfallback">'+p.emoji+'</span>'}
+function updateCount(){const n=cart.reduce(function(s,i){return s+i.qty},0);document.getElementById('headcount').textContent=n;document.getElementById('navcount').textContent=n;document.getElementById('cartcaption').textContent=n+' article(s)'}
+function go(id){
+  document.querySelectorAll('.view').forEach(function(v){v.classList.toggle('active',v.id===id)});
+  document.querySelectorAll('.tab').forEach(function(t){t.classList.toggle('on',t.dataset.go===id)});
+  document.querySelectorAll('.nav-link').forEach(function(t){t.classList.toggle('on',t.dataset.go===id)});
+  if(id==='home')renderMenu();
+  if(id==='cart')renderCart();
+  if(id==='orders')renderOrders();
+  window.scrollTo({top:0,behavior:'smooth'})
+}
+function renderFilters(){document.getElementById('filters').innerHTML=categories.map(function(c){return '<button class="chip '+(selectedCategory===c[0]?'on':'')+'" data-category="'+c[0]+'">'+c[1]+'</button>'}).join('')}
+function renderMenu(){renderFilters();const q=(document.getElementById('search').value||'').trim().toLocaleLowerCase('fr');const list=products.filter(function(p){return (selectedCategory==='Tout'||p.cat===selectedCategory)&&(p.name+' '+p.desc+' '+p.cat).toLocaleLowerCase('fr').includes(q)});document.getElementById('resultcount').textContent=list.length+' plats';document.getElementById('menu').innerHTML=list.map(function(p,i){return '<article class="food" data-add="'+p.id+'" style="animation-delay:'+(i*35)+'ms"><div class="foodpic">'+imageMarkup(p)+(p.badge?'<span class="badge">'+p.badge+'</span>':'')+'</div><div class="foodbody"><h3>'+esc(p.name)+'</h3><p>'+esc(p.desc)+'</p><div class="foodfoot"><span class="price">'+money(p.price)+'</span><div class="add">+</div></div></div></article>'}).join('')||'<div class="empty"><span class="big">🔎</span><b>Aucun produit trouvé</b><p>Essayez une autre recherche.</p></div>'}
+function openDish(id){activeDish=products.find(function(p){return p.id===id});if(!activeDish)return;dishQty=1;const p=activeDish;document.getElementById('dishcontent').innerHTML='<div class="modalpic">'+imageMarkup(p)+'</div><h2 style="margin:4px 0 6px">'+esc(p.name)+'</h2><p class="muted" style="font-size:13px;line-height:1.5;color:var(--muted)">'+esc(p.desc)+'</p><div class="notice">Ingrédients : '+esc(p.ingredients)+'</div><b style="font-size:13px">Personnalisation</b>'+p.extras.map(function(e,i){return '<label class="extras"><span><input type="checkbox" data-extra="'+i+'"> '+esc(e.name)+'</span><b>+'+money(e.price)+'</b></label>'}).join('')+'<div class="row" style="margin-top:16px"><div class="steppers"><button data-dishqty="-1">−</button><b id="dishqty">1</b><button data-dishqty="1">+</button></div><b id="dishprice" style="font-size:18px">'+money(p.price)+'</b></div><button class="full accent" id="confirmAdd">Ajouter au panier · <span id="addprice">'+money(p.price)+'</span></button>';document.getElementById('dishmodal').classList.add('show')}
+function closeModal(id){document.getElementById(id).classList.remove('show')}
+function pickedExtras(){return Array.from(document.querySelectorAll('#dishcontent [data-extra]:checked')).map(function(el){return activeDish.extras[Number(el.dataset.extra)]})}
+function recalcDish(){if(!activeDish)return;const unit=activeDish.price+pickedExtras().reduce(function(s,e){return s+e.price},0),total=unit*dishQty;document.getElementById('dishqty').textContent=dishQty;document.getElementById('dishprice').textContent=money(total);document.getElementById('addprice').textContent=money(total)}
+
+function addDish(){
+  if(!activeDish)return;
+  const extras=pickedExtras(),qty=dishQty,key=activeDish.id+':'+extras.map(function(e){return e.name}).sort().join('|'),existing=cart.find(function(i){return i.key===key});
+  if(existing) existing.qty+=qty;
+  else cart.push({key:key,id:activeDish.id,qty:qty,extras:extras.map(function(e){return {name:e.name,price:e.price}}),unit:activeDish.price+extras.reduce(function(s,e){return s+e.price},0)});
+  store();
+  closeModal('dishmodal');
+  toast('Ajouté au panier !');
+}
+
+function cartSubtotal(){return cart.reduce(function(s,i){return s+i.qty*i.unit},0)}
+function cartRows(){return cart.map(function(i){const p=products.find(function(p){return p.id===i.id});return '<div class="lineitem"><div class="thumb">'+imageMarkup(p)+'</div><div class="lineinfo"><b>'+esc(p.name)+'</b><small>'+(i.extras.map(function(e){return esc(e.name)}).join(', ')||'Standard')+'</small><b style="margin-top:4px">'+money(i.unit*i.qty)+'</b></div><div class="steppers"><button data-cartstep="-1" data-key="'+esc(i.key)+'">−</button><b>'+i.qty+'</b><button data-cartstep="1" data-key="'+esc(i.key)+'">+</button></div><button class="iconbtn" style="color:#EF4444;padding:6px 10px" data-remove="'+esc(i.key)+'">×</button></div>'}).join('')}
+
+function renderCart(){
+  updateCount();
+  const items=document.getElementById('cartitems'),body=document.getElementById('cartbody');
+  if(!cart.length){
+    items.innerHTML='<div class="empty"><span class="big">🛍️</span><b>Panier vide</b><p>Ajoutez un plat pour commencer.</p><button class="pill" data-go="home" style="margin-top:12px">Voir le menu</button></div>';
+    body.innerHTML='';
+    return;
+  }
+  items.innerHTML='<div class="panel">'+cartRows()+'</div>';
+  const subtotal=cartSubtotal();
+  body.innerHTML='<div class="panel"><div class="total grand"><span>Total</span><span>'+money(subtotal)+'</span></div></div><div class="panel"><h3 style="margin:0 0 12px">Vos Coordonnées</h3><label>Nom et prénom</label><input id="customerName" class="field" placeholder="Votre nom" autocomplete="name"><label>Numéro de téléphone</label><input id="customerPhone" class="field" type="tel" placeholder="06XXXXXXXX" autocomplete="tel"><label>Créneau de récupération</label><select id="pickup" class="field">'+pickupSlots.map(function(s){return '<option value="'+s.value+'">'+s.value+'</option>'}).join('')+'</select><label>Paiement</label><input id="payment" class="field" value="Espèces au comptoir" readonly><button class="full accent" data-action="checkout">Confirmer la commande · '+money(subtotal)+'</button></div>';
+}
+
+async function checkout(){
+  if(!cart.length){toast('Votre panier est vide.');return}
+  const name=document.getElementById('customerName').value.trim();
+  const phone=document.getElementById('customerPhone').value.trim();
+  const slot=document.getElementById('pickup').value;
+  if(!name){toast('Veuillez saisir votre nom.');document.getElementById('customerName').focus();return}
+  if(!phone){toast('Veuillez saisir votre numéro.');document.getElementById('customerPhone').focus();return}
+  
+  const n=Math.floor(1000+Math.random()*9000);
+  const id='CMD-'+Math.random().toString(36).slice(2,6).toUpperCase();
+  const o={
+    id:id, code:String(n), name:name, phone:phone,
+    items:cart.map(function(i){return JSON.parse(JSON.stringify(i))}),
+    slot:slot, payment:'Espèces au comptoir',
+    total:Math.round(cartSubtotal()*100)/100,
+    status:'Reçue', created:new Date().toISOString()
+  };
+  
+  toast('Validation en cours...');
+  try {
+    o.rid = await cloudCreateOrder(o);
+  } catch(e) {
+    console.warn('Sync notice:', e.message);
+  }
+  
+  orders.unshift(o);
+  cart=[];
+  store();
+  showReceipt(o);
+  renderOrders();
+}
+
+function showReceipt(o){document.getElementById('confirmcontent').innerHTML='<div style="text-align:center;padding:10px 0"><div style="font-size:42px">🎉</div><h2>Commande validée !</h2><p class="muted" style="font-size:13px;color:var(--muted)">Merci '+esc(o.name)+' !</p></div><div class="receipt"><div class="row"><b>Just Do Eat</b><b>'+esc(o.id)+'</b></div><div class="divider"></div><p>Client : <b>'+esc(o.name)+'</b></p><p>Téléphone : <b>'+esc(o.phone)+'</b></p><p>Retrait : <b>'+esc(o.slot)+'</b></p><p>Code de retrait : <b style="font-size:22px;color:var(--primary);letter-spacing:2px">'+esc(o.code)+'</b></p>'+o.items.map(function(i){return '<div class="total"><span>'+i.qty+' × '+esc(products.find(function(p){return p.id===i.id}).name)+'</span><b>'+money(i.qty*i.unit)+'</b></div>'}).join('')+'<div class="total grand"><span>Total</span><b>'+money(o.total)+'</b></div></div><button class="full" data-download-receipt="'+o.id+'" style="margin-top:14px">Télécharger le reçu</button><button class="full accent" data-action="track">Suivre ma commande</button>';document.getElementById('confirmmodal').classList.add('show')}
+
+function renderReceiptHtml(o){
+  return '<div class="receipt"><div class="row"><b>Just Do Eat</b><b>'+esc(o.id)+'</b></div><div class="divider"></div><p>Client : <b>'+esc(o.name)+'</b></p><p>Téléphone : <b>'+esc(o.phone||'N/A')+'</b></p><p>Retrait : <b>'+esc(o.slot)+'</b></p><p>Code de retrait : <b style="font-size:18px;color:var(--primary);letter-spacing:2px">'+esc(o.code)+'</b></p>'+o.items.map(function(i){return '<div class="total"><span>'+i.qty+' × '+esc(products.find(function(p){return p.id===i.id}).name)+'</span><b>'+money(i.qty*i.unit)+'</b></div>'}).join('')+'<div class="total grand"><span>Total</span><b>'+money(o.total)+'</b></div></div>';
+}
+
+function downloadText(filename,text){const a=document.createElement('a'),url=URL.createObjectURL(new Blob([text],{type:'text/plain;charset=utf-8'}));a.href=url;a.download=filename;a.click();setTimeout(function(){URL.revokeObjectURL(url)},1000)}
+function receiptText(o){return 'JUST DO EAT\nCommande : '+o.id+'\nClient : '+o.name+'\nTéléphone : '+(o.phone||'N/A')+'\nRetrait : '+o.slot+'\nCode : '+o.code+'\n\n'+o.items.map(function(i){return i.qty+' x '+products.find(function(p){return p.id===i.id}).name+' : '+money(i.qty*i.unit)}).join('\n')+'\nTOTAL : '+money(o.total)}
+function downloadReceipt(id){const o=orders.find(function(x){return x.id===id});if(o)downloadText(o.id+'-recu.txt',receiptText(o))}
+
+function renderOrders(){
+  const el=document.getElementById('ordersview');
+  if(!orders.length){
+    el.innerHTML='<div class="empty" style="grid-column:1/-1"><span class="big">📦</span><b>Aucune commande</b><p>Vos commandes apparaîtront ici.</p><button class="pill" data-go="home" style="margin-top:12px">Commander</button></div>';
+    return;
+  }
+  const sts=['Reçue','En préparation','Prête','Récupérée'];
+  el.innerHTML=orders.map(function(o){
+    const current=sts.indexOf(o.status);
+    return '<div class="panel"><div class="row"><b>'+esc(o.id)+'</b><span class="status">'+esc(o.status)+'</span></div><p class="small" style="margin:6px 0">'+new Date(o.created).toLocaleString('fr-FR')+'</p><div class="steptrack">'+sts.map(function(s,i){return '<div class="step '+(current>=i?'done':'')+'"><div class="dot"></div>'+s+'</div>'}).join('')+'</div>'+renderReceiptHtml(o)+'<button class="pill soft" style="margin-top:12px;width:100%" data-download-receipt="'+o.id+'">Télécharger le reçu (.txt)</button></div>';
+  }).join('');
+}
+
+document.addEventListener('click',function(ev){const target=ev.target.closest('[data-add], button, a[data-go]');if(!target)return;
+if(target.dataset.go){ev.preventDefault();go(target.dataset.go);return}
+if(target.dataset.category){selectedCategory=target.dataset.category;renderMenu();return}
+if(target.dataset.add){openDish(target.dataset.add);return}
+if(target.dataset.scroll){const el=document.getElementById(target.dataset.scroll);if(el)el.scrollIntoView({behavior:'smooth'});return}
+if(target.dataset.close){closeModal(target.dataset.close);return}
+if(target.dataset.dishqty){dishQty=Math.max(1,Math.min(20,dishQty+Number(target.dataset.dishqty)));recalcDish();return}
+if(target.id==='confirmAdd'){addDish();return}
+if(target.dataset.cartstep){const item=cart.find(function(x){return x.key===target.dataset.key});if(item){item.qty+=Number(target.dataset.cartstep);if(item.qty<=0)cart=cart.filter(function(x){return x.key!==target.dataset.key});store();renderCart()}return}
+if(target.dataset.remove){cart=cart.filter(function(x){return x.key!==target.dataset.remove});store();renderCart();toast('Article retiré');return}
+if(target.dataset.action==='checkout'){checkout();return}
+if(target.dataset.action==='track'){closeModal('confirmmodal');go('orders');return}
+if(target.dataset.downloadReceipt){downloadReceipt(target.dataset.downloadReceipt);return}
+});
+document.getElementById('search').addEventListener('input',renderMenu);
+document.getElementById('dishcontent').addEventListener('change',function(ev){if(ev.target.matches('[data-extra]'))recalcDish()});
+document.getElementById('confirmmodal').addEventListener('click',function(ev){if(ev.target===this)closeModal('confirmmodal')});
+const _go=go;go=function(id){_go(id);if(id==='orders')refreshMine()};
+setInterval(function(){if(document.hidden||!CLOUD)return;if(document.getElementById('orders').classList.contains('active'))refreshMine()},15000);
+renderMenu();updateCount();
+</script>
+</body>
+</html>
