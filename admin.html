@@ -15,7 +15,8 @@
   --bg:#F8FAFC;--card-bg:#FFFFFF;--text:#0F172A;--muted:#64748B;
   --border:#E2E8F0;--radius:20px;--shadow:0 10px 25px -5px rgba(15,23,42,0.05);
 }
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',system-ui,sans-serif;padding:20px}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',system-ui,sans-serif;padding:20px}
 .container{max-width:1200px;margin:0 auto}
 header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px}
 h1{margin:0;font-size:24px}
@@ -71,7 +72,8 @@ select.field, input.field{width:100%;padding:10px;border-radius:10px;border:1px 
 </div>
 
 <script>
-const ADMIN_CODE = "anastouri12";
+// SHA-256 pre-computed hash for 'anastouri12'
+const ADMIN_HASH = "81c3c907a10ddf912f2759f2e327a3c306e9ec1ee55b272ec8fa6a83604d57ad";
 
 const APPWRITE = {
   endpoint: 'https://fra.cloud.appwrite.io/v1',
@@ -82,9 +84,17 @@ const APPWRITE = {
 
 let allOrders = [];
 
-function checkAuth(){
+// Helper function to hash text using browser Web Crypto API
+async function sha256(str) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function checkAuth(){
   const input = document.getElementById('passcode').value.trim();
-  if(input === ADMIN_CODE || sessionStorage.getItem('admin_authed') === 'true'){
+  const inputHash = await sha256(input);
+  
+  if(inputHash === ADMIN_HASH || sessionStorage.getItem('admin_authed') === 'true'){
     sessionStorage.setItem('admin_authed', 'true');
     document.getElementById('lockscreen').style.display = 'none';
     document.getElementById('adminContent').style.display = 'block';
@@ -104,7 +114,7 @@ document.getElementById('passcode').addEventListener('keyup', function(e){
   if(e.key === 'Enter') checkAuth();
 });
 
-// Auto-login if previously unlocked in this session
+// Auto-login if previously unlocked in this active browser tab/session
 if(sessionStorage.getItem('admin_authed') === 'true'){
   checkAuth();
 }
